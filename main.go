@@ -140,7 +140,7 @@ func inotifyWatch(watcher *inotify.Watcher, watchPath string) chan *inotify.Even
 		}
 
 		if filepath.Ext(path) == ".go" {
-			watcher.Watch(path)
+			watcher.AddWatch(path, inotify.IN_MOVE|inotify.IN_DELETE|inotify.IN_MODIFY)
 		}
 
 		return nil
