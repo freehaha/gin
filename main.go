@@ -1,6 +1,7 @@
 package main
 
 import (
+	"code.google.com/p/go.exp/inotify"
 	"errors"
 	"fmt"
 	"github.com/codegangsta/cli"
@@ -127,7 +128,37 @@ func build(builder gin.Builder, logger *log.Logger) {
 
 type scanCallback func(path string)
 
+func inotifyWatch(watcher *inotify.Watcher, watchPath string) chan *inotify.Event {
+	filepath.Walk(watchPath, func(path string, info os.FileInfo, err error) error {
+		if path == ".git" {
+			return filepath.SkipDir
+		}
+
+		// ignore hidden files
+		if filepath.Base(path)[0] == '.' {
+			return nil
+		}
+
+		if filepath.Ext(path) == ".go" {
+			watcher.Watch(path)
+		}
+
+		return nil
+	})
+	return watcher.Event
+}
+
 func scanChanges(watchPath string, cb scanCallback) {
+	if watcher, err := inotify.NewWatcher(); err == nil {
+		for {
+			ch := inotifyWatch(watcher, watchPath)
+			ev := <-ch
+			cb(ev.Name)
+			watcher.Close()
+			watcher, _ = inotify.NewWatcher()
+		}
+		return
+	}
 	for {
 		filepath.Walk(watchPath, func(path string, info os.FileInfo, err error) error {
 			if path == ".git" {
